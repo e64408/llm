@@ -82,6 +82,7 @@ body {
   border-radius: 6px;
   border: 1px solid #ddd;
   background: #fff;
+  font-size: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -663,7 +664,8 @@ body {
 <div class="sidebar" id="sidebar">
   <div class="sidebar-top">
     <div class="logo">G</div>
-    <div class="icon-btn" id="toggleSidebarBtn"></div>
+    <!-- 这里改成了 ← 向左箭头 -->
+    <div class="icon-btn" id="toggleSidebarBtn">←</div>
   </div>
 
   <!-- 固定顺序：新聊天 → 搜索 → Codex → 更多 -->
@@ -854,7 +856,7 @@ document.addEventListener('click', function(e) {
 });
 modelOptions.forEach(option => {
   option.onclick = function() {
-    modelOptions.forEach(opt => opt.classList.remove('active'));
+    modelOptions.forEach(opt => opt.remove('active'));
     this.classList.add('active');
     selectedModel = this.dataset.model;
     modelDropdown.classList.remove('show');

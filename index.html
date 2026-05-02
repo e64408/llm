@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>ChatGPT 风格对话助手</title>
+<title>多轮对话助手</title>
 <style>
 * {
   margin: 0;
@@ -31,6 +31,31 @@ body {
   bottom: 0;
   left: 0;
   overflow-y: auto;
+  transition: transform 0.3s ease;
+  z-index: 10;
+}
+
+.sidebar.collapsed {
+  transform: translateX(-100%);
+}
+
+.sidebar-toggle-float {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  width: 32px;
+  height: 32px;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 9999;
+}
+.sidebar-toggle-float.show {
+  display: flex;
 }
 
 .sidebar-top {
@@ -77,6 +102,56 @@ body {
   background: #e5e5e5;
 }
 
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 12px;
+  margin-top:10px;
+}
+.history-item {
+  font-size: 13px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.history-item.active {
+  background: #e5e5e5;
+}
+
+.search-wrap {
+  margin: 8px 0;
+  display: none;
+}
+.search-input {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid #e5e5e5;
+  outline: none;
+  font-size: 13px;
+}
+.search-result {
+  margin-top:6px;
+  max-height:180px;
+  overflow-y:auto;
+}
+.search-result-item {
+  font-size:12px;
+  padding:6px 10px;
+  border-radius:6px;
+  cursor:pointer;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.search-result-item:hover {
+  background:#e5e5e5;
+}
+
 .sidebar-bottom {
   margin-top: auto;
   padding-top: 12px;
@@ -116,11 +191,32 @@ body {
   cursor: pointer;
 }
 
+/* 导出聊天按钮 */
+.export-chat-btn {
+  width: 100%;
+  margin-top: 10px;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid #168cff;
+  background: #f0f7ff;
+  color: #168cff;
+  cursor: pointer;
+  font-size: 13px;
+}
+.export-chat-btn:hover {
+  background: #e0efff;
+}
+
 .main {
   flex: 1;
   display: flex;
   flex-direction: column;
   margin-left: 220px;
+  transition: margin-left 0.3s ease;
+}
+
+.main.expanded {
+  margin-left: 0;
 }
 
 .header {
@@ -136,7 +232,49 @@ body {
   gap: 6px;
   font-size: 18px;
   font-weight: 500;
+  position: relative;
 }
+.model-dropdown-btn {
+  background: none;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+}
+.model-dropdown-btn::after {
+  content: "▼";
+  font-size: 12px;
+  margin-left: 4px;
+}
+.model-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background: #fff;
+  border: 1px solid #e5e5e5;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  display: none;
+  flex-direction: column;
+  z-index: 100;
+  min-width: 160px;
+}
+.model-dropdown.show {
+  display: flex;
+}
+.model-option {
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 14px;
+}
+.model-option:hover {
+  background: #f7f7f8;
+}
+.model-option.active {
+  background: #e5e5e5;
+}
+
 .plus-btn {
   padding: 8px 16px;
   border-radius: 20px;
@@ -162,11 +300,32 @@ body {
   flex-direction: column;
   align-items: center;
   padding: 24px;
+  position: relative;
 }
 .chat-title {
   font-size: 28px;
   font-weight: 500;
   margin-bottom: 20px;
+}
+
+/* 输入框上方快捷按钮栏 */
+.quick-btn-bar {
+  width: 100%;
+  max-width: 700px;
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.quick-btn {
+  padding: 6px 12px;
+  border-radius: 16px;
+  border: 1px solid #e5e5e5;
+  background: #f7f7f8;
+  font-size: 13px;
+  cursor: pointer;
+}
+.quick-btn:hover {
+  background: #e5e5e5;
 }
 
 .input-container {
@@ -190,6 +349,7 @@ body {
   transform: translateY(-50%);
   font-size: 20px;
   color: #999;
+  cursor: pointer;
 }
 .input-icon-right {
   position: absolute;
@@ -214,20 +374,6 @@ body {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-}
-
-.api-container {
-  width: 100%;
-  max-width: 700px;
-  margin-bottom: 20px;
-}
-#apiKey {
-  width: 100%;
-  padding: 12px 16px;
-  border: 1px solid #e5e5e5;
-  border-radius: 12px;
-  font-size: 14px;
-  outline: none;
 }
 
 .messages {
@@ -284,193 +430,616 @@ body {
   color: #168cff;
 }
 
-/* ====================== ✅ 只加了这段自适应，其他完全不动 ====================== */
+.drop-area {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(22, 140, 255, 0.1);
+  border: 3px dashed #168cff;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  color: #168cff;
+  z-index: 2000;
+}
+
+.modal-mask{
+  position:fixed;
+  top:0;
+  left:0;
+  width:100%;
+  height:100%;
+  background:rgba(0,0,0,0.45);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  z-index:1000;
+}
+.help-modal{
+  background:#fff;
+  width:90%;
+  max-width:520px;
+  border-radius:12px;
+  position:relative;
+  padding:24px;
+}
+.help-close{
+  position:absolute;
+  top:16px;
+  right:16px;
+  font-size:20px;
+  cursor:pointer;
+  color:#999;
+}
+.help-close:hover{
+  color:#333;
+}
+.help-modal h3{
+  text-align:center;
+  margin-bottom:16px;
+  font-size:18px;
+}
+.help-content{
+  font-size:14px;
+  line-height:1.8;
+  color:#555;
+}
+
+.modal-box{
+  background:#fff;
+  padding:24px;
+  border-radius:12px;
+  width:90%;
+  max-width:400px;
+}
+.modal-box h3{
+  margin-bottom:16px;
+  font-size:16px;
+}
+.modal-box input{
+  width:100%;
+  padding:12px;
+  border:1px solid #e5e5e5;
+  border-radius:8px;
+  margin-bottom:16px;
+  outline:none;
+}
+.modal-btn-row{
+  display:flex;
+  gap:12px;
+  justify-content:flex-end;
+}
+.modal-btn{
+  padding:8px 16px;
+  border-radius:8px;
+  border:none;
+  cursor:pointer;
+}
+.btn-cancel{
+  background:#f7f7f8;
+}
+.btn-confirm{
+  background:#168cff;
+  color:#fff;
+}
+
+/* Codex 弹窗 */
+.codex-modal{
+  position:fixed;
+  top:0;left:0;
+  width:100%;height:100%;
+  background:rgba(0,0,0,0.5);
+  display:none;
+  align-items:center;justify-content:center;
+  z-index:9999;
+}
+.codex-box{
+  background:#fff;
+  width:90%;max-width:500px;
+  padding:24px;border-radius:12px;
+  position:relative;
+}
+.codex-box h3{
+  margin-bottom:12px;color:#168cff;
+}
+.codex-box p{
+  line-height:1.7;margin:6px 0;font-size:14px;
+}
+
+/* 更多 弹窗 */
+.more-modal{
+  position:fixed;
+  top:0;left:0;
+  width:100%;height:100%;
+  background:rgba(0,0,0,0.5);
+  display:none;
+  align-items:center;justify-content:center;
+  z-index:9999;
+}
+.more-box{
+  background:#fff;
+  width:90%;max-width:500px;
+  padding:24px;border-radius:12px;
+  position:relative;
+}
+.more-box h3{
+  margin-bottom:16px;color:#333;
+}
+.more-box .info-item{
+  margin:8px 0;padding:8px 0;border-bottom:1px solid #eee;
+}
+.more-box .info-title{
+  font-weight:bold;color:#168cff;
+}
+.more-box .info-content{
+  font-size:14px;line-height:1.6;
+}
+
 @media (max-width: 768px) {
-  .sidebar {
-    transform: translateX(-100%);
-    z-index: 999;
-    transition: 0.3s;
-  }
-  .main {
-    margin-left: 0;
-  }
-  .chat-area {
-    padding: 16px;
-  }
-  .messages {
-    height: 350px;
-  }
+  .sidebar {transform: translateX(-100%);}
+  .main {margin-left: 0;}
+  .quick-btn-bar {flex-wrap: wrap;}
 }
 </style>
 </head>
 <body>
-  <div class="sidebar">
-    <div class="sidebar-top">
-      <div class="logo">G</div>
-      <div class="icon-btn"></div>
+
+<div id="floatToggleBtn" class="sidebar-toggle-float">≡</div>
+<div id="dropArea" class="drop-area">将文件拖到此处上传</div>
+
+<!-- ===================== 功能弹窗 ===================== -->
+<!-- Codex 说明弹窗 -->
+<div id="codexModal" class="codex-modal">
+  <div class="codex-box">
+    <span class="help-close" onclick="closeCodex()">×</span>
+    <h3>🤖 Codex 全能编程助手</h3>
+    <p>✅ 阅读整个项目代码，理解架构与逻辑</p>
+    <p>✅ 修改任意文件，自动生成、优化代码</p>
+    <p>✅ 运行程序、执行测试、输出结果</p>
+    <p>✅ 自动检测并修复代码错误</p>
+    <p>✅ 自动提交代码、创建 PR、完成协作</p>
+    <p>✅ 支持所有编程语言：JS/TS/Python/Java/C++/Go 等</p>
+  </div>
+</div>
+
+<!-- 更多 信息弹窗 -->
+<div id="moreModal" class="more-modal">
+  <div class="more-box">
+    <span class="help-close" onclick="closeMore()">×</span>
+    <h3>ℹ️ 更多信息</h3>
+    <div class="info-item">
+      <div class="info-title">版本信息</div>
+      <div class="info-content">v2.5.0 | 2025 完整版智能助手</div>
     </div>
-    <div class="menu-item active">
-      <span>✎</span> 新聊天
+    <div class="info-item">
+      <div class="info-title">支持功能</div>
+      <div class="info-content">多轮对话、文件上传、模型切换、会话管理、代码生成、搜索、侧边折叠</div>
     </div>
-    <div class="menu-item">
-      <span>Q</span> 搜索聊天
+    <div class="info-item">
+      <div class="info-title">快捷键</div>
+      <div class="info-content">Enter → 发送消息 | Ctrl+Enter → 换行</div>
     </div>
-    <div class="menu-item">
-      <span>♾️</span> Codex
+    <div class="info-item">
+      <div class="info-title">支持模型</div>
+      <div class="info-content">qwen3.6-plus / qwen-turbo / qwen-plus / qwen-max</div>
     </div>
-    <div class="menu-item">
-      <span>…</span> 更多
-    </div>
-    <div class="sidebar-bottom">
-      <div class="user-avatar">X</div>
-      <div class="user-info">
-        <div class="user-name">xiangjie</div>
-        <div class="user-tag">免费版</div>
-      </div>
-      <button class="upgrade-btn">升级</button>
+    <div class="info-item">
+      <div class="info-title">关于</div>
+      <div class="info-content">基于阿里云百炼大模型 | 安全、高效、智能</div>
     </div>
   </div>
+</div>
 
-  <div class="main">
-    <div class="header">
-      <div class="header-left">
+<!-- 原有弹窗 -->
+<div class="modal-mask" id="helpModal">
+  <div class="help-modal">
+    <div class="help-close" id="helpClose">×</div>
+    <h3>多轮对话助手 使用说明 & 注意事项</h3>
+    <div class="help-content">
+      1. 本助手支持<strong>多轮连续对话</strong>，自动保存会话历史，AI 可理解上下文内容。<br><br>
+      2. 使用前请点击页面右上角「设置API」，输入阿里云百炼 API Key。<br><br>
+      3. 左侧侧边栏「新聊天」可创建全新对话，清空历史记忆。<br><br>
+      4. 聊天过程中可随时点击「清空对话」重置当前会话记录。<br><br>
+      5. 输入框左侧「+」按钮支持上传文件（TXT、MD等文本文件）<br><br>
+      6. 注意事项：请勿泄露个人 API Key，密钥仅保存在本地浏览器。
+    </div>
+  </div>
+</div>
+
+<div class="modal-mask" id="apiModal" style="display:none;">
+  <div class="modal-box">
+    <h3>输入阿里云百炼 API Key</h3>
+    <input type="password" id="apiKeyInput" placeholder="请粘贴你的 sk- 开头密钥">
+    <div class="modal-btn-row">
+      <button class="modal-btn btn-cancel" id="cancelApiBtn">取消</button>
+      <button class="modal-btn btn-confirm" id="confirmApiBtn">确定</button>
+    </div>
+  </div>
+</div>
+
+<div class="sidebar" id="sidebar">
+  <div class="sidebar-top">
+    <div class="logo">G</div>
+    <div class="icon-btn" id="toggleSidebarBtn"></div>
+  </div>
+
+  <!-- 固定顺序：新聊天 → 搜索 → Codex → 更多 -->
+  <div class="menu-item active" id="newChatBtn">
+    <span>✎</span> 新聊天
+  </div>
+
+  <div class="menu-item" id="searchChatBtn">
+    <span>Q</span> 搜索聊天
+  </div>
+  <div class="search-wrap" id="searchWrap">
+    <input class="search-input" id="searchInput" placeholder="输入关键词搜索...">
+    <div class="search-result" id="searchResult"></div>
+  </div>
+
+  <div class="menu-item" id="codexBtn">
+    <span>♾️</span> Codex
+  </div>
+  
+  <div class="menu-item" id="moreBtn">
+    <span>…</span> 更多
+  </div>
+
+  <div class="history-list" id="historyList"></div>
+
+  <div class="sidebar-bottom">
+    <div class="user-avatar">X</div>
+    <div class="user-info">
+      <div class="user-name">xiangjie</div>
+      <div class="user-tag">免费版</div>
+    </div>
+    <button class="upgrade-btn">升级</button>
+  </div>
+  <!-- 左下角导出聊天历史按钮 -->
+  <button class="export-chat-btn" id="exportChatBtn">📤 导出当前聊天记录</button>
+</div>
+
+<div class="main" id="main">
+  <div class="header">
+    <div class="header-left">
+      <div style="display:flex; align-items:center; gap:6px;">
         <span>ChatGPT</span>
-        <span>⌄</span>
+        <button class="model-dropdown-btn" id="modelDropdownBtn"></button>
       </div>
-      <div class="header-right">
-        <button class="plus-btn">✨ 获取 Plus</button>
-        <div class="icon-group">
-          <span class="icon">👤+</span>
-          <span class="icon">♻</span>
-        </div>
+      <div class="model-dropdown" id="modelDropdown">
+        <div class="model-option active" data-model="qwen3.6-plus">qwen3.6-plus</div>
+        <div class="model-option" data-model="qwen-turbo">qwen-turbo</div>
+        <div class="model-option" data-model="qwen-plus">qwen-plus</div>
+        <div class="model-option" data-model="qwen-max">qwen-max</div>
       </div>
     </div>
-
-    <div class="chat-area">
-      <div class="chat-title">有什么可以帮忙的？</div>
-      <div class="api-container">
-        <input type="password" id="apiKey" placeholder="请输入阿里云百炼 API Key">
-      </div>
-      <div class="messages" id="chatBox"></div>
-      <div class="input-container">
-        <span class="input-icon-left">+</span>
-        <input type="text" id="userInput" placeholder="有问题，尽管问">
-        <span class="input-icon-right">🎤</span>
-        <button class="send-btn" id="sendBtn">🔊</button>
-      </div>
-      <div class="tips">
-        <div id="error" class="error"></div>
-        <div id="loading" class="loading">思考中…</div>
-        <button id="clearBtn">清空对话</button>
+    <div class="header-right">
+      <button class="plus-btn" id="openApiModalBtn">设置API</button>
+      <div class="icon-group">
+        <span class="icon">👤+</span>
+        <span class="icon">♻</span>
       </div>
     </div>
   </div>
+
+  <div class="chat-area">
+    <div class="chat-title">有什么可以帮忙的？</div>
+    <div class="messages" id="chatBox"></div>
+
+    <!-- 输入框上方三个快捷按钮 -->
+    <div class="quick-btn-bar">
+      <button class="quick-btn" id="btnOptimize">文本优化</button>
+      <button class="quick-btn" id="btnShort">缩写精简</button>
+      <button class="quick-btn" id="btnRewrite">润色改写</button>
+    </div>
+
+    <div class="input-container">
+      <span class="input-icon-left" id="uploadBtn">+</span>
+      <input type="text" id="userInput" placeholder="有问题，尽管问">
+      <span class="input-icon-right">🎤</span>
+      <button class="send-btn" id="sendBtn">🔊</button>
+    </div>
+    <div class="tips">
+      <div id="error" class="error"></div>
+      <div id="loading" class="loading">思考中…</div>
+      <button id="clearBtn">清空对话</button>
+    </div>
+  </div>
+</div>
 
 <script>
-const apiKey = document.getElementById('apiKey');
+const helpModal = document.getElementById('helpModal');
+const helpClose = document.getElementById('helpClose');
 const chatBox = document.getElementById('chatBox');
 const userInput = document.getElementById('userInput');
 const sendBtn = document.getElementById('sendBtn');
 const clearBtn = document.getElementById('clearBtn');
+const newChatBtn = document.getElementById('newChatBtn');
+const openApiModalBtn = document.getElementById('openApiModalBtn');
+const apiModal = document.getElementById('apiModal');
+const apiKeyInput = document.getElementById('apiKeyInput');
+const cancelApiBtn = document.getElementById('cancelApiBtn');
+const confirmApiBtn = document.getElementById('confirmApiBtn');
 const loading = document.getElementById('loading');
 const error = document.getElementById('error');
+const historyList = document.getElementById('historyList');
+const searchChatBtn = document.getElementById('searchChatBtn');
+const searchWrap = document.getElementById('searchWrap');
+const searchInput = document.getElementById('searchInput');
+const searchResult = document.getElementById('searchResult');
 
-let messages = [];
+const uploadBtn = document.getElementById('uploadBtn');
+const dropArea = document.getElementById('dropArea');
+
+const sidebar = document.getElementById('sidebar');
+const main = document.getElementById('main');
+const toggleSidebarBtn = document.getElementById('toggleSidebarBtn');
+const floatToggleBtn = document.getElementById('floatToggleBtn');
+
+const modelDropdownBtn = document.getElementById('modelDropdownBtn');
+const modelDropdown = document.getElementById('modelDropdown');
+const modelOptions = document.querySelectorAll('.model-option');
+let selectedModel = "qwen3.6-plus";
+
+// Codex + 更多
+const codexModal = document.getElementById('codexModal');
+const moreModal = document.getElementById('moreModal');
+const codexBtn = document.getElementById('codexBtn');
+const moreBtn = document.getElementById('moreBtn');
+
+// 导出按钮
+const exportChatBtn = document.getElementById('exportChatBtn');
+// 输入框上方快捷按钮
+const btnOptimize = document.getElementById('btnOptimize');
+const btnShort = document.getElementById('btnShort');
+const btnRewrite = document.getElementById('btnRewrite');
+
+function openCodex(){ codexModal.style.display = 'flex'; }
+function closeCodex(){ codexModal.style.display = 'none'; }
+function openMore(){ moreModal.style.display = 'flex'; }
+function closeMore(){ moreModal.style.display = 'none'; }
+codexBtn.onclick = openCodex;
+moreBtn.onclick = openMore;
+
+// 导出当前聊天记录为TXT
+exportChatBtn.onclick = function(){
+  if(!currentSessionId){
+    alert('暂无聊天记录可导出');
+    return;
+  }
+  const session = sessions.find(s => s.id === currentSessionId);
+  if(!session || session.messages.length === 0){
+    alert('暂无聊天记录可导出');
+    return;
+  }
+  let text = "===== 聊天记录 =====\n";
+  session.messages.forEach(item => {
+    const role = item.role === 'user' ? '我' : 'AI';
+    text += `\n【${role}】\n${item.content}\n`;
+  });
+  // 生成并下载txt
+  const blob = new Blob([text], {type: 'text/plain'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = "聊天记录_" + new Date().toLocaleString() + ".txt";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+};
+
+// 点击直接自动填入对应提示词
+btnOptimize.onclick = function(){
+  userInput.value = "请帮我优化下面这段文字，理顺逻辑、润色语句、表达更专业流畅：";
+};
+btnShort.onclick = function(){
+  userInput.value = "请帮我把下面内容精简缩写，保留核心信息，去掉冗余废话：";
+};
+btnRewrite.onclick = function(){
+  userInput.value = "请帮我对下面内容进行全新润色改写，换一种风格重新表达：";
+};
+
+let apiKey = "";
+let sessions = [];
+let currentSessionId = null;
 loading.style.display = 'none';
 
-sendBtn.onclick = sendMessage;
-userInput.addEventListener('keydown', function(e) {
-    if (e.key === 'Enter') {
-        e.preventDefault();
-        sendMessage();
-    }
+// 模型下拉
+modelDropdownBtn.onclick = function() { modelDropdown.classList.toggle('show'); };
+document.addEventListener('click', function(e) {
+  if (!modelDropdownBtn.contains(e.target) && !modelDropdown.contains(e.target)) modelDropdown.classList.remove('show');
 });
-clearBtn.onclick = () => { messages = []; chatBox.innerHTML = ''; setError(''); };
+modelOptions.forEach(option => {
+  option.onclick = function() {
+    modelOptions.forEach(opt => opt.classList.remove('active'));
+    this.classList.add('active');
+    selectedModel = this.dataset.model;
+    modelDropdown.classList.remove('show');
+  };
+});
 
+// 侧边栏折叠
+function toggleSidebar() {
+  const isCollapsed = sidebar.classList.toggle('collapsed');
+  main.classList.toggle('expanded');
+  floatToggleBtn.classList.toggle('show', isCollapsed);
+}
+toggleSidebarBtn.onclick = toggleSidebar;
+floatToggleBtn.onclick = toggleSidebar;
+
+helpClose.onclick = () => { helpModal.style.display = 'none'; };
+
+// API
+openApiModalBtn.onclick = () => { apiModal.style.display = 'flex'; apiKeyInput.value = apiKey; };
+cancelApiBtn.onclick = () => { apiModal.style.display = 'none'; };
+confirmApiBtn.onclick = () => { apiKey = apiKeyInput.value.trim(); apiModal.style.display = 'none'; setError(''); };
+
+// 搜索
+searchChatBtn.onclick = () => {
+  searchWrap.style.display = searchWrap.style.display === 'block' ? 'none' : 'block';
+  if(searchWrap.style.display === 'block') searchInput.focus();
+};
+searchInput.oninput = () => {
+  const kw = searchInput.value.trim().toLowerCase();
+  searchResult.innerHTML = '';
+  if(!kw) return;
+  sessions.forEach(s => {
+    if(s.messages.some(m => m.content.toLowerCase().includes(kw))){
+      const item = document.createElement('div');
+      item.className = 'search-result-item';
+      item.textContent = s.title;
+      item.onclick = () => { switchSession(s.id); searchWrap.style.display = 'none'; searchInput.value=''; };
+      searchResult.appendChild(item);
+    }
+  });
+};
+
+// 会话
+function createNewSession(){
+  const id = Date.now()+'';
+  sessions.push({id, title:'新对话', messages:[]});
+  currentSessionId = id;
+  renderSessions();
+  switchSession(id);
+}
+function renderSessions(){
+  historyList.innerHTML = '';
+  sessions.forEach(s => {
+    const el = document.createElement('div');
+    el.className = 'history-item ' + (s.id===currentSessionId ? 'active' : '');
+    el.textContent = s.title;
+    el.onclick = () => switchSession(s.id);
+    historyList.appendChild(el);
+  });
+}
+function switchSession(id){
+  currentSessionId = id;
+  const s = sessions.find(x => x.id === id);
+  chatBox.innerHTML = '';
+  s.messages.forEach(m => addMessage(m.role, m.content));
+  renderSessions();
+}
+
+newChatBtn.onclick = createNewSession;
+clearBtn.onclick = () => {
+  const s = sessions.find(x => x.id === currentSessionId);
+  if(s) s.messages = [];
+  chatBox.innerHTML = '';
+};
+
+// 上传文件
+uploadBtn.onclick = () => {
+  const i = document.createElement('input');
+  i.type = 'file';
+  i.accept = '.txt,.md,.json,.js,.html,.css,.log';
+  i.onchange = e => handleFile(e.target.files[0]);
+  i.click();
+};
+['dragenter','dragover'].forEach(e => {
+  document.addEventListener(e, ev => { ev.preventDefault(); dropArea.style.display = 'flex'; });
+});
+['dragleave','drop'].forEach(e => {
+  document.addEventListener(e, ev => { ev.preventDefault(); dropArea.style.display = 'none'; });
+});
+document.addEventListener('drop', ev => {
+  ev.preventDefault();
+  const f = ev.dataTransfer.files[0];
+  if(f) handleFile(f);
+});
+function handleFile(file){
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const content = `📄 上传文件：${file.name}\n\n${e.target.result}`;
+    if(!currentSessionId) createNewSession();
+    const s = sessions.find(x => x.id === currentSessionId);
+    if(s.messages.length === 0){
+      s.title = file.name.length>12 ? file.name.slice(0,12)+'…' : file.name;
+      renderSessions();
+    }
+    s.messages.push({role:'user',content});
+    addMessage('user', content);
+  };
+  reader.readAsText(file);
+}
+
+// 发送
+sendBtn.onclick = sendMessage;
+userInput.addEventListener('keydown', e => {
+  if(e.key === 'Enter') { e.preventDefault(); sendMessage(); }
+});
 async function sendMessage() {
-  const key = apiKey.value.trim();
-  const text = userInput.value.trim();
-  if (!key) { setError('请输入 API Key'); return; }
-  if (!text) { setError('请输入内容'); return; }
-
-  messages.push({ role: 'user', content: text });
-  addMessage('user', text);
+  const t = userInput.value.trim();
+  if(!apiKey) return setError('请先设置API Key');
+  if(!t) return setError('请输入内容');
+  if(!currentSessionId) createNewSession();
+  const s = sessions.find(x => x.id === currentSessionId);
+  if(s.messages.length === 0){
+    s.title = t.length>12 ? t.slice(0,12)+'…' : t;
+    renderSessions();
+  }
+  s.messages.push({role:'user',content:t});
+  addMessage('user',t);
   userInput.value = '';
-
   setLoading(true);
-  setError('');
-
   try {
-    const res = await fetch('https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': 'Bearer ' + key,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        model: 'qwen3.6-plus',
-        messages: messages
-      })
+    const r = await fetch('https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions',{
+      method:'POST',
+      headers:{'Authorization':'Bearer '+apiKey,'Content-Type':'application/json'},
+      body:JSON.stringify({model: selectedModel, messages:s.messages})
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error?.message || '请求失败');
-    const reply = data.choices[0].message.content;
-    messages.push({ role: 'assistant', content: reply });
-
+    const d = await r.json();
+    if(!r.ok) throw new Error(d.error?.message||'请求失败');
+    const reply = d.choices[0].message.content;
+    s.messages.push({role:'assistant',content:reply});
     const div = document.createElement('div');
     div.className = 'message message-bot';
-    const avatar = document.createElement('div');
-    avatar.className = 'message-avatar';
-    avatar.textContent = 'AI';
-    const content = document.createElement('div');
-    content.className = 'message-content';
-    content.textContent = '';
-    div.appendChild(avatar);
-    div.appendChild(content);
+    const ava = document.createElement('div');
+    ava.className = 'message-avatar';
+    ava.textContent = 'AI';
+    const con = document.createElement('div');
+    con.className = 'message-content';
+    div.appendChild(ava); div.appendChild(con);
     chatBox.appendChild(div);
-    chatBox.scrollTop = chatBox.scrollHeight;
-
-    let i = 0;
-    function type() {
-      if (i < reply.length) {
-        content.textContent += reply.charAt(i);
-        i++;
+    let i=0;
+    (function ty(){
+      if(i<reply.length){
+        con.textContent += reply[i++];
         chatBox.scrollTop = chatBox.scrollHeight;
-        setTimeout(type, 16);
+        setTimeout(ty,16);
       }
-    }
-    type();
-
-  } catch (e) {
-    setError('错误：' + e.message);
-  } finally {
+    })();
+  }catch(e){
+    setError('错误：'+e.message);
+  }finally{
     setLoading(false);
   }
 }
 
-function addMessage(role, txt) {
-  const div = document.createElement('div');
-  div.className = role === 'user' ? 'message message-user' : 'message message-bot';
-  const avatar = document.createElement('div');
-  avatar.className = 'message-avatar';
-  avatar.textContent = role === 'user' ? '你' : 'AI';
-  const content = document.createElement('div');
-  content.className = 'message-content';
-  content.textContent = txt;
-  div.appendChild(avatar);
-  div.appendChild(content);
-  chatBox.appendChild(div);
+function addMessage(role,txt){
+  const d = document.createElement('div');
+  d.className = role==='user' ? 'message message-user' : 'message message-bot';
+  const a = document.createElement('div');
+  a.className = 'message-avatar';
+  a.textContent = role==='user' ? '你' : 'AI';
+  const c = document.createElement('div');
+  c.className = 'message-content';
+  c.textContent = txt;
+  d.appendChild(a); d.appendChild(c);
+  chatBox.appendChild(d);
   chatBox.scrollTop = chatBox.scrollHeight;
 }
 
-function setLoading(v) {
+function setLoading(v){
   loading.style.display = v ? 'block' : 'none';
   sendBtn.disabled = v;
 }
+function setError(m){ error.textContent = m; }
 
-function setError(msg) {
-  error.textContent = msg;
-}
+createNewSession();
 </script>
 </body>
 </html>
